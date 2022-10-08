@@ -1,6 +1,7 @@
 package carShowroomReentrantLock;
 
 import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class CarShowroomReentrantLock {
@@ -8,34 +9,30 @@ public class CarShowroomReentrantLock {
     final static int manufactoringTime = 300;
 
     public static void main(String[] args) {
-        ReentrantLock locker = new ReentrantLock(true);
+        Lock locker = new ReentrantLock(true);
         Condition condition = locker.newCondition();
         Cars cars = new Cars();
 
         Runnable clientsOfShowroom = () -> {
-            for (int i = 0; i < amountOfIterrations; i++) {
-                locker.lock();
+            String customer = Thread.currentThread().getName();
+            locker.lock();
+            while (cars.isOpened()) {
                 try {
-                    String customer = Thread.currentThread().getName();
                     System.out.println(customer + " пришел в салон");
                     while (cars.isShowroomEmpty() && cars.isOpened()) {
                         System.out.printf("?? %s ждет завоз\n", customer);
                         condition.await();
                     }
-                    if(cars.isOpened()){
+                    if (cars.isOpened() && !cars.isShowroomEmpty()) {
                         System.out.println(customer + " купил " + cars.buyCar() + " и уехал!");
-                    }else{
-                        System.out.println(customer + " ушел домой. Магазин закрыт");
-                        i = amountOfIterrations;
-                        Thread.currentThread().interrupt();
+                    } else if (!cars.isOpened()){
+                        condition.signal();
+                        locker.unlock();
                     }
-                    condition.signalAll();
                 } catch (InterruptedException e) {
-                } finally {
-                    locker.unlock();
+                    System.out.println(customer + " расстроился");
                 }
             }
-
         };
 
         Thread client01 = new Thread(clientsOfShowroom, "Модест");
@@ -46,11 +43,13 @@ public class CarShowroomReentrantLock {
             for (int i = 0; i < amountOfIterrations; i++) {
                 locker.lock();
                 try {
-                    while (!cars.isShowroomEmpty()) {
-                        condition.await();
+                    if (i == amountOfIterrations - 1) {
+                        cars.closeShowroom();
+                        System.out.println("Салон закрывается ");
+                    } else {
+                        System.out.println("Привезли в шоу-рум " + cars.orderCar());
                     }
-                    System.out.println("Привезли в шоу-рум " + cars.orderCar());
-                    condition.signalAll();
+                    condition.signal();
                     Thread.sleep(manufactoringTime);
                 } catch (InterruptedException e) {
                     System.out.println("Что-то сломалось в шоу-руме");
@@ -59,19 +58,7 @@ public class CarShowroomReentrantLock {
                     locker.unlock();
                 }
             }
-            locker.lock();
-            try {
-                while (!cars.isShowroomEmpty()) {
-                    condition.await();
-                }
-                cars.setOpened(false);
-                condition.signalAll();
-            } catch (InterruptedException e){
-
-            }finally {
-                locker.unlock();
-            }
-        });
+        }, "Шоу-рум");
 
         showroom.start();
         client01.start();

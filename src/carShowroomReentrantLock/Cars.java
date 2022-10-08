@@ -8,9 +8,7 @@ public class Cars {
     final private int indexToRemove = 0;
     final private int lowerBoundOfCarName = 0;
     final private int upperBoundOfCarName = 3;
-
     private boolean isOpened = true;
-
     private List<CarName> cars;
 
     public Cars() {
@@ -37,7 +35,7 @@ public class Cars {
         return isOpened;
     }
 
-    public void setOpened(boolean opened) {
-        isOpened = opened;
+    public void closeShowroom() {
+        isOpened = false;
     }
 }
